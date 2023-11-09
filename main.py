@@ -1,0 +1,79 @@
+import sys
+import os
+import logging
+import time
+import shutil
+import filecmp
+# from tkinker.filedialog import askdirectory
+
+import constants
+
+
+def askLocation(instruction_string):
+    print(instruction_string)
+    attempt = 0
+    while True:
+        path = input()
+        if os.path.exists(path):
+            # valid path
+            break
+        else:
+            attempt += 1
+            if attempt >= constants.MAX_ATTEMPTS:
+                # exceeded max number of attempts
+                print("Exceeded maximum attempts, terminating")
+                logging.info("Exceeded maximum attempts")
+                time.sleep(constants.TERMINATION_DELAY)
+                sys.exit()
+            else:
+                # not exceeded max number of attempts
+                print("Please enter valid path")
+                logging.info("wrong attempt num " + str(attempt))
+
+    return path
+
+
+def absoluteFilePaths(directory):
+    for dirpath, _, filenames in os.walk(directory):
+        for f in filenames:
+            yield os.path.abspath(os.path.join(dirpath, f)), f
+
+
+if __name__ == '__main__':
+    # TODO create option to browse folders
+    source_path = askLocation("Enter source folder path.")
+    replica_path = askLocation("Enter path to replica folder (new folder will be created).")
+    if source_path == replica_path:
+        # identical paths of source and replica
+        print("Source path and target replica path must be different, terminating.")
+        logging.exception("Identical source and replica path")
+        time.sleep(constants.TERMINATION_DELAY)
+        sys.exit()
+    if not os.path.exists(source_path):
+        # path error
+        print("Path is no longer valid.")
+        logging.exception("Folder was moved, renamed or deleted")
+        time.sleep(constants.TERMINATION_DELAY)
+        sys.exit()
+    else:
+        # all ok
+        # TODO analyze compare source and replica
+        # TODO add periodical check
+        # TODO remake changes according to source - content of files, permissions
+        # TODO log changes to file and logger
+        for src_p, src_f in absoluteFilePaths(source_path):
+            rep_p = replica_path + src_f
+            # check if file with same name exists in replica
+            if os.path.exists(rep_p):
+                # check if files are identical
+                if not filecmp.cmp(src_p, rep_p):
+                    # if not rewrite it
+                    shutil.copy(src_p, rep_p)
+
+            else:
+                # if the file doesn't exist in replica then create it
+                shutil.copy(src_p, rep_p)
+
+        for rep_p, rep_f in absoluteFilePaths(replica_path):
+            if not rep_f in os.listdir(source_path):
+                os.remove(rep_p)
