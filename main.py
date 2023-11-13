@@ -1,13 +1,13 @@
-import sys
-import os
-import logging
-import time
-import shutil
 import filecmp
+import logging
+import os
+import shutil
+import sys
+import time
 import tkinter
-from difflib import Differ
 from datetime import datetime
-from tkinter import Tk, filedialog
+from difflib import Differ
+from tkinter import filedialog
 
 import constants
 
