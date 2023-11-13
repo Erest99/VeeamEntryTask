@@ -50,12 +50,13 @@ def syncFolders():
         else:
             # if the file doesn't exist in replica then create it
             logging.info("Added file: " + rep_p)
-            os.umask(0)
             os.makedirs(os.path.dirname(rep_p), exist_ok=True)
             shutil.copy(src_p, rep_p)
     for rep_p, rep_f in absoluteFilePaths(replica_path):
         if not rep_f in src_files:
             os.remove(rep_p)
+        else:
+            src_files.remove(rep_f)
 
 
 def absoluteFilePaths(directory):
@@ -70,6 +71,7 @@ if __name__ == '__main__':
     # TODO create option to browse folders
     # source_path = askLocation("Enter source folder path.")
     # replica_path = askLocation("Enter path to replica folder.")
+    # for debug
     source_path = r"C:\Users\Horky\Desktop\source"
     replica_path = r"C:\Users\Horky\Desktop\replica"
     if source_path == replica_path:
@@ -87,7 +89,6 @@ if __name__ == '__main__':
     else:
         # all ok
         # TODO edit comparation of files to line by line -> so you can log what changed
-        # TODO remake changes according to source - content of files, permissions
         # TODO log changes to file and logger
         if len(os.listdir(replica_path)) > 0:
             print("Selected replica folder is not empty, all files will be deleted. Do you wish to continue? (Y/N)")
