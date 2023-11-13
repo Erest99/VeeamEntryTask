@@ -35,8 +35,10 @@ def askLocation(instruction_string):
 
 
 def syncFolders():
+    src_files = []
     for src_p, src_f in absoluteFilePaths(source_path):
-        rep_p = replica_path + "\\" + src_f
+        src_files.append(src_f)
+        rep_p = src_p.replace(source_path, replica_path)
         # check if file with same name exists in replica
         if os.path.exists(rep_p):
             # check if files are identical TODO edit
@@ -48,10 +50,11 @@ def syncFolders():
         else:
             # if the file doesn't exist in replica then create it
             logging.info("Added file: " + rep_p)
+            os.umask(0)
+            os.makedirs(os.path.dirname(rep_p), exist_ok=True)
             shutil.copy(src_p, rep_p)
-
     for rep_p, rep_f in absoluteFilePaths(replica_path):
-        if not rep_f in os.listdir(source_path):
+        if not rep_f in src_files:
             os.remove(rep_p)
 
 
@@ -59,14 +62,16 @@ def absoluteFilePaths(directory):
     for dirpath, dirnames, filenames in os.walk(directory):
         for f in filenames:
             yield os.path.abspath(os.path.join(dirpath, f)), f
-        for d in dirnames:
-            yield os.path.abspath(os.path.join(dirpath, d)), d
+        # for d in dirnames:
+        #     yield os.path.abspath(os.path.join(dirpath, d)), d
 
 
 if __name__ == '__main__':
     # TODO create option to browse folders
-    source_path = askLocation("Enter source folder path.")
-    replica_path = askLocation("Enter path to replica folder.")
+    # source_path = askLocation("Enter source folder path.")
+    # replica_path = askLocation("Enter path to replica folder.")
+    source_path = r"C:\Users\Horky\Desktop\source"
+    replica_path = r"C:\Users\Horky\Desktop\replica"
     if source_path == replica_path:
         # identical paths of source and replica
         print("Source path and target replica path must be different, terminating.")
@@ -82,7 +87,6 @@ if __name__ == '__main__':
     else:
         # all ok
         # TODO edit comparation of files to line by line -> so you can log what changed
-        # TODO add periodical check
         # TODO remake changes according to source - content of files, permissions
         # TODO log changes to file and logger
         if len(os.listdir(replica_path)) > 0:
@@ -91,14 +95,15 @@ if __name__ == '__main__':
             if input() == "Y":
                 print("Deleting all files.")
                 logging.info("Deleting all files in " + replica_path + ".")
-                for f in os.listdir(replica_path):
-                    os.remove(os.path.join(replica_path, f))
+                # for f in os.listdir(replica_path):
+                #     os.remove(os.path.join(replica_path, f))
+                shutil.rmtree(replica_path)
+                os.mkdir(replica_path)
             else:
                 print("Aborting synchronization.")
                 logging.info("Run aborted.")
                 time.sleep(constants.TERMINATION_DELAY)
                 sys.exit()
-        # TODO LOOP
         print("Synchronization started.")
         logging.info("Synchro started with src: " + source_path + " and rep: " + replica_path)
         while True:
