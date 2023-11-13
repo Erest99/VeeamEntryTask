@@ -4,11 +4,9 @@ import os
 import shutil
 import sys
 import time
-import tkinter
 import re
 from datetime import datetime
 from difflib import Differ
-from tkinter import filedialog
 
 import constants
 
@@ -79,7 +77,6 @@ def askLogFileName():
     while True:
         print("Enter name for your log file.")
         log_file = input()
-        log_path = ""
         if validateName(log_file):
             log_path = replica_path + "\\" + log_file
             logging.info("Logging file at: " + log_path)
@@ -94,16 +91,22 @@ def askLogFileName():
     return log_path, log_file
 
 
-def askDirectoryPaths():
-    root = tkinter.Tk()
-    root.withdraw()
-    print("Select source folder.")
-    source_path = filedialog.askdirectory().replace("/", "\\")
-    logging.info("Selected " + source_path + " as source")
-    print("Select folder to replicate to.")
-    replica_path = filedialog.askdirectory().replace("/", "\\")
-    logging.info("Selected " + replica_path + " as replica")
-    return source_path, replica_path
+def askDirectoryPaths(info_text, log_text):
+    attempts = 0
+    while True:
+        print(info_text)
+        path = input()
+        if os.path.exists(path):
+            logging.info(log_text + str(path))
+            break
+        else:
+            print("Invalid path")
+            attempts += 1
+        if attempts >= constants.INSERT_ATTEMPTS:
+            print("Exceeded max number of attempts.")
+            logging.info("Exceeded max number of attempts, terminating")
+            sys.exit()
+    return path
 
 
 def askPeriod():
@@ -127,7 +130,8 @@ def askPeriod():
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     differ = Differ()
-    source_path, replica_path = askDirectoryPaths()
+    source_path = askDirectoryPaths("Enter source directory path.", "Source directory path se to: ")
+    replica_path = askDirectoryPaths("Enter replica directory path.", "Replica directory path se to: ")
     log_path, log_file = askLogFileName()
     sync_period = int(askPeriod())
     if not os.path.exists(source_path):
