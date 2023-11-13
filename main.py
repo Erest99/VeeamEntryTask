@@ -79,7 +79,6 @@ def askLogFileName():
     while True:
         print("Enter name for your log file.")
         log_file = input()
-        log_path = ""
         if validateName(log_file):
             log_path = replica_path + "\\" + log_file
             logging.info("Logging file at: " + log_path)
