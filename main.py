@@ -5,6 +5,7 @@ import shutil
 import sys
 import time
 import tkinter
+import re
 from datetime import datetime
 from difflib import Differ
 from tkinter import filedialog
@@ -12,8 +13,8 @@ from tkinter import filedialog
 import constants
 
 
-def syncFolders(differ, log_path):
-    src_files = [constants.LOG_FILE]
+def syncFolders(differ, log_path, log_file):
+    src_files = [log_file]
     for src_p, src_f in absoluteFilePaths(source_path):
         src_files.append(src_f)
         rep_p = src_p.replace(source_path, replica_path)
@@ -69,9 +70,31 @@ def deleteEmptyDirectory(root_path):
                 os.rmdir(path)
 
 
-if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
-    # for debug
+def validateName(strg, search=re.compile(r'[a-zA-Z0-9._]{1,20}[.][a-zA-Z0-9]{1,5}').search):
+    return bool(search(strg))
+
+
+def askLogFileName():
+    attempts = 0
+    while True:
+        print("Enter name for your log file.")
+        log_file = input()
+        log_path = ""
+        if validateName(log_file):
+            log_path = replica_path + "\\" + log_file
+            logging.info("Logging file at: " + log_path)
+            break
+        else:
+            print("Invalid filename.")
+            attempts += 1
+        if attempts >= constants.INSERT_ATTEMPTS:
+            print("Exceeded max number of attempts.")
+            logging.info("Exceeded max number of attempts, terminating")
+            sys.exit()
+    return log_path, log_file
+
+
+def askDirectoryPaths():
     root = tkinter.Tk()
     root.withdraw()
     print("Select source folder.")
@@ -80,7 +103,33 @@ if __name__ == '__main__':
     print("Select folder to replicate to.")
     replica_path = filedialog.askdirectory().replace("/", "\\")
     logging.info("Selected " + replica_path + " as replica")
-    log_path = replica_path + "\\" + constants.LOG_FILE
+    return source_path, replica_path
+
+
+def askPeriod():
+    attempts = 0
+    while True:
+        print("Enter period to update replica folder (in seconds).")
+        period = input()
+        if period.isdigit():
+            logging.info("period set to: " + str(period) + "s")
+            break
+        else:
+            print("Period must be a whole number.")
+            attempts += 1
+        if attempts >= constants.INSERT_ATTEMPTS:
+            print("Exceeded max number of attempts.")
+            logging.info("Exceeded max number of attempts, terminating")
+            sys.exit()
+    return period
+
+
+if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
+    differ = Differ()
+    source_path, replica_path = askDirectoryPaths()
+    log_path, log_file = askLogFileName()
+    sync_period = int(askPeriod())
     if not os.path.exists(source_path):
         # path error
         print("Path is no longer valid.")
@@ -94,7 +143,6 @@ if __name__ == '__main__':
         time.sleep(constants.TERMINATION_DELAY)
         sys.exit()
     # all ok
-    differ = Differ()
     if len(os.listdir(replica_path)) > 0:
         print("Selected replica folder is not empty, all files will be deleted. Do you wish to continue? (Y/N)")
         logging.info("Selected replicating folder is not empty")
@@ -116,9 +164,9 @@ if __name__ == '__main__':
     logging.info("Synchro started with src: " + source_path + " and rep: " + replica_path)
     while True:
         for src_p, src_f in absoluteFilePaths(source_path):
-            if constants.LOG_FILE in src_f:
+            if log_file in src_f:
                 logging.warning(
-                    "Source folder can't contain file named '" + constants.LOG_FILE + "'. Do you wish to remove it? (Y/N)")
+                    "Source folder can't contain file named '" + log_file + "'. Do you wish to remove it? (Y/N)")
                 if input() == "Y":
                     os.remove(src_p)
                 else:
@@ -126,7 +174,7 @@ if __name__ == '__main__':
                     logging.info("Terminating, logging file name collision.")
                     time.sleep(constants.TERMINATION_DELAY)
                     sys.exit()
-        time.sleep(constants.SYNC_PERIOD)
+        time.sleep(sync_period)
         print("Updating")
         logging.info("Updating repository at: " + replica_path)
-        syncFolders(differ, log_path)
+        syncFolders(differ, log_path, log_file)
