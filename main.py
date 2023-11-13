@@ -3,8 +3,8 @@ import os
 import logging
 import time
 import shutil
+from difflib import Differ
 import filecmp
-from distutils.dir_util import copy_tree
 # from tkinker.filedialog import askdirectory
 
 import constants
@@ -34,19 +34,22 @@ def askLocation(instruction_string):
     return path
 
 
-def syncFolders():
-    src_files = []
+def syncFolders(differ):
+    src_files = [constants.LOG_FILE]
     for src_p, src_f in absoluteFilePaths(source_path):
         src_files.append(src_f)
         rep_p = src_p.replace(source_path, replica_path)
         # check if file with same name exists in replica
         if os.path.exists(rep_p):
-            # check if files are identical TODO edit
+            # file exists in replica, check if it is updated
             if not filecmp.cmp(src_p, rep_p):
                 # if not rewrite it
-                logging.info("File rewrote: " + rep_p)
+                if rep_p.endswith(tuple(constants.SUPPORTED_TYPES)):
+                    with open(src_p) as f1, open(rep_p) as f2:
+                        for line in differ.compare(f1.readlines(), f2.readlines()):
+                            print(line)
+                logging.info("File updated: " + rep_p)
                 shutil.copy(src_p, rep_p)
-
         else:
             # if the file doesn't exist in replica then create it
             logging.info("Added file: " + rep_p)
@@ -54,6 +57,7 @@ def syncFolders():
             shutil.copy(src_p, rep_p)
     for rep_p, rep_f in absoluteFilePaths(replica_path):
         if not rep_f in src_files:
+            logging.info("Removed file: " + rep_p)
             os.remove(rep_p)
         else:
             src_files.remove(rep_f)
@@ -68,6 +72,7 @@ def absoluteFilePaths(directory):
 
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
     # TODO create option to browse folders
     # source_path = askLocation("Enter source folder path.")
     # replica_path = askLocation("Enter path to replica folder.")
@@ -88,16 +93,14 @@ if __name__ == '__main__':
         sys.exit()
     else:
         # all ok
-        # TODO edit comparation of files to line by line -> so you can log what changed
         # TODO log changes to file and logger
+        differ = Differ()
         if len(os.listdir(replica_path)) > 0:
             print("Selected replica folder is not empty, all files will be deleted. Do you wish to continue? (Y/N)")
             logging.info("Selected replicating folder is not empty")
             if input() == "Y":
                 print("Deleting all files.")
                 logging.info("Deleting all files in " + replica_path + ".")
-                # for f in os.listdir(replica_path):
-                #     os.remove(os.path.join(replica_path, f))
                 shutil.rmtree(replica_path)
                 os.mkdir(replica_path)
             else:
@@ -105,10 +108,22 @@ if __name__ == '__main__':
                 logging.info("Run aborted.")
                 time.sleep(constants.TERMINATION_DELAY)
                 sys.exit()
+        with open(replica_path + "\\" + constants.LOG_FILE, 'w') as f:
+            f.write(r"This file contains logs for changes at: " + source_path + "\n\n")
         print("Synchronization started.")
         logging.info("Synchro started with src: " + source_path + " and rep: " + replica_path)
         while True:
+            for src_p, src_f in absoluteFilePaths(source_path):
+                if constants.LOG_FILE in src_f:
+                    logging.error("Source folder can't contain file named '" + constants.LOG_FILE + "'. Do you wish to remove it? (Y/N)")
+                    if input() == "Y":
+                        os.remove(src_p)
+                    else:
+                        print("Terminating.")
+                        logging.info("Terminating, logging file name collision.")
+                        time.sleep(constants.TERMINATION_DELAY)
+                        sys.exit()
             time.sleep(constants.SYNC_PERIOD)
             print("Updating")
             logging.info("Updating repository at: " + replica_path)
-            syncFolders()
+            syncFolders(differ)
