@@ -4,6 +4,7 @@ import logging
 import time
 import shutil
 import filecmp
+from distutils.dir_util import copy_tree
 # from tkinker.filedialog import askdirectory
 
 import constants
@@ -33,10 +34,33 @@ def askLocation(instruction_string):
     return path
 
 
+def syncFolders():
+    for src_p, src_f in absoluteFilePaths(source_path):
+        rep_p = replica_path + "\\" + src_f
+        # check if file with same name exists in replica
+        if os.path.exists(rep_p):
+            # check if files are identical TODO edit
+            if not filecmp.cmp(src_p, rep_p):
+                # if not rewrite it
+                logging.info("File rewrote: " + rep_p)
+                shutil.copy(src_p, rep_p)
+
+        else:
+            # if the file doesn't exist in replica then create it
+            logging.info("Added file: " + rep_p)
+            shutil.copy(src_p, rep_p)
+
+    for rep_p, rep_f in absoluteFilePaths(replica_path):
+        if not rep_f in os.listdir(source_path):
+            os.remove(rep_p)
+
+
 def absoluteFilePaths(directory):
-    for dirpath, _, filenames in os.walk(directory):
+    for dirpath, dirnames, filenames in os.walk(directory):
         for f in filenames:
             yield os.path.abspath(os.path.join(dirpath, f)), f
+        for d in dirnames:
+            yield os.path.abspath(os.path.join(dirpath, d)), d
 
 
 if __name__ == '__main__':
@@ -61,7 +85,7 @@ if __name__ == '__main__':
         # TODO add periodical check
         # TODO remake changes according to source - content of files, permissions
         # TODO log changes to file and logger
-        if len(os.listdir(replica_path) > 0):
+        if len(os.listdir(replica_path)) > 0:
             print("Selected replica folder is not empty, all files will be deleted. Do you wish to continue? (Y/N)")
             logging.info("Selected replicating folder is not empty")
             if input() == "Y":
@@ -74,21 +98,11 @@ if __name__ == '__main__':
                 logging.info("Run aborted.")
                 time.sleep(constants.TERMINATION_DELAY)
                 sys.exit()
-        for src_p, src_f in absoluteFilePaths(source_path):
-            rep_p = replica_path + src_f
-            # check if file with same name exists in replica
-            if os.path.exists(rep_p):
-                # check if files are identical TODO edit
-                if not filecmp.cmp(src_p, rep_p):
-                    # if not rewrite it
-                    logging.info("File rewrote: " + rep_p)
-                    shutil.copy(src_p, rep_p)
-
-            else:
-                # if the file doesn't exist in replica then create it
-                logging.info("Added file: " + rep_p)
-                shutil.copy(src_p, rep_p)
-
-        for rep_p, rep_f in absoluteFilePaths(replica_path):
-            if not rep_f in os.listdir(source_path):
-                os.remove(rep_p)
+        # TODO LOOP
+        print("Synchronization started.")
+        logging.info("Synchro started with src: " + source_path + " and rep: " + replica_path)
+        while True:
+            time.sleep(constants.SYNC_PERIOD)
+            print("Updating")
+            logging.info("Updating repository at: " + replica_path)
+            syncFolders()
